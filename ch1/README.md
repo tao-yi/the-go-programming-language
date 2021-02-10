@@ -41,3 +41,37 @@ func main() {
 - [ ] a `map` is a `reference` to the data structure created by `make`. When a map is passed to a function, the function receives a copy of the reference, so any changes the called function makes to the underlying data structure will be visible through the caller's map reference too.
 
 - [ ] `bufio.NewScanner(f)` reads data in a streaming way, however, `ioutil.ReadFile()` reads entire data into memory and return a byte slice.
+- [ ] `io.Copy(dst, src)` reads from src and writes to dst. Use it instead of `ioutil.ReadAll` to pipe data from src to dst without requiring a buffer large enough to hold the entire stream
+- [ ] the function `main` runs in a goroutine and the go statement creates additional goroutines.
+- [ ] behind the scenes, the server runs the handler for each incoming request in a separate goroutine so that it can serve multiple requests simultaneously
+- [ ] `mu.Lock()` is used to ensure that at most one goroutine accesses the variable at a time
+
+```go
+switch coinflip() {
+case "heads":
+	heads++;
+case "tails":
+	tails++;
+default:
+	return
+}
+```
+
+- [ ] cases do not fall through from one to the next as in C-like languages (although there is a rarely used `fallthrough` statement)
+
+```go
+func Signum(x int) int {
+	switch {
+		case x > 0:
+			return +1
+		default:
+			return 0
+		case x < 0:
+			return -1
+	}
+}
+```
+
+- [ ] this form is called a `tagless switch`, it's equivalent to `switch true {}`
+- [ ] go provides pointers, that is, values that contain the address of a variable
+- [ ] `go doc` tool makes documents easily accessible from the command line
