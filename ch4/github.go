@@ -27,6 +27,26 @@ type IssuesSearchResult struct {
 	Items      []*Issue
 }
 
+var issueList = template.Must(template.New("issuelist").Parse(`
+<h1>{{.Total}} issues</h1>
+<table>
+<tr style='text-align: left'>
+	<th>#</th>
+	<th>State</th>
+	<th>User</th>
+	<th>Title</th>
+</tr>
+{{range .Items}}
+<tr>
+	<td><a href='{{.HTMLURL}}'>{{.Number}}</th>
+	<td>{{.State}}</td>
+	<td><a href='{{.User.HTMLURL}}'>{{.User.Login}}</a></td>
+	<td><a href='{{.HTMLURL}}'>{{.Title}}</a></td>
+</tr>
+{{end}}
+</table>
+`))
+
 type Issue struct {
 	Number    int
 	HTMLURL   string `json:"html_url"`
@@ -85,4 +105,10 @@ func main() {
 	if err := report.Execute(os.Stdout, result); err != nil {
 		log.Fatal(err)
 	}
+
+	http.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
+		issueList.Execute(rw, result)
+	})
+
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
