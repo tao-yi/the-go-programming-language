@@ -35,7 +35,33 @@ func btoi(b bool) int {
 
 A string is an immutable sequence of bytes. Text strings are conventionally interpreted as UTF-8-encoded sequences of Unicode code points (runes).
 
+The built-in `len` function returns the number of bytes (not runes) in a string, and the `index` operation `s[i]` retrieves the i-th byte of string `s`, where `0 <= i <= len(s)`
+
+The `i-th` byte of a string is not necessarily the `i-th` character of a string, because the UTF-8 encoding of a non-ASCII code point requires two or more bytes.
+
 A string `s` and a substring likbe `s[7:]` may safely safely share the same data, so the substring operation is also cheap. No new memory is allocated in either case.
+
+In go, [a string is in effect a read-only slice of bytes](https://blog.golang.org/strings).
+
+A string value can be written as a `string literal`, a sequence of bytes enclosed in double quotes:
+
+```go
+"Hello, 世界 "
+```
+
+A `raw string literal` is written using backquotes instead of doubgle quotes.
+
+```go
+const GoUsage  = `Go is a tool for managing Go source code.
+
+Usage:
+  go command [arguments]
+`
+```
+
+### UTF-8
+
+UTF-8 is a variable length encoding of Unicode code points as bytes. It uses between 1 and 4 bytes to represent each rune, but only 1 byte for ASCII characters, and only 2 or 3 bytes for most runes in common use.
 
 ## Rune & Unicode
 
