@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 func main() {
 	naturals := make(chan int)
@@ -9,6 +12,7 @@ func main() {
 	// counter
 	go func() {
 		for x := 0; ; x++ {
+			time.Sleep(1 * time.Second)
 			naturals <- x
 		}
 	}()
