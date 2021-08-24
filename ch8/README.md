@@ -51,12 +51,16 @@ ch = make(chan string, 3)
 
 ## Looping In Parallel
 
+下面的代码有一个 bug，当遇到第一个 error 的时候，整个函数会 return，导致 errors channel 没有被消费干净。而其他 goroutine 还在执行，会往 errors channel 中发送数据，`errors <- err`，会导致这些 goroutine 永远阻塞。
+
 ```go
 func makeThumbnails4(filenames []string) error {
 	errors := make(chan error)
 	for _, f := range filenames {
 		go func(f string) {
 			_, err := ImageFile(f)
+			// each remaining goroutine will block forever
+			// when it tries to send a value on that channel
 			errors <- err
 		}(f)
 	}
@@ -74,6 +78,118 @@ func makeThumbnails4(filenames []string) error {
 }
 
 ```
+
+解决这个问题最简单的方法是用 buffered channel。
+The simplest solution is to use a buffered channel with sufficient capacity that no worker goroutine will block when it sends a message. (An alternative solution is to create another goroutine to drain the channel while the main goroutine returns the first error without delay)
+
+The next version of makeThumbnails uses a buffered channel to return the names of the generated image files along with any errors.
+
+```go
+func makeThumbnails5(filenames []string) (thumbfiles []string, err error) {
+	type item struct {
+		thumbfile string
+		err       error
+	}
+
+	// 这里用buffered channel，确保goroutine往里发送数据时不会阻塞
+	ch := make(chan item, len(filenames))
+	for _, f := range filenames {
+		go func(f string) {
+			var it item
+			it.thumbfile, it.err = ImageFile(f)
+			// ch是buffered，所以这里不会阻塞
+			ch <- it
+		}(f)
+	}
+
+	for range filenames {
+		it := <-ch
+		if it.err != nil {
+			return nil, it.err
+		}
+		thumbfiles = append(thumbfiles, it.thumbfile)
+	}
+
+	return thumbfiles, nil
+}
+
+```
+
+## Multiplexing with `select
+
+The `time.Tick` function returns a channel on which it sends events periodically, acting like a metronome. The value of each event is a timestamp.
+
+```go
+func main() {
+	fmt.Println("Commencing countdown.")
+	tick := time.Tick(1 * time.Second)
+	for countdown := 10; countdown > 0; countdown-- {
+		fmt.Println(countdown)
+		<-tick
+	}
+
+	fmt.Println("launching...")
+}
+
+```
+
+```go
+func main() {
+	abort := make(chan struct{})
+	fmt.Println("Commencing countdown. Press return to abort.")
+	tick := time.Tick(1 * time.Second)
+	for countdown := 10; countdown > 0; countdown-- {
+		fmt.Println(countdown)
+		select {
+		case <-tick:
+			// Do nothing
+		case <-abort:
+			fmt.Println("Launch aborted!")
+			return
+		}
+	}
+
+	fmt.Println("launching...")
+}
+
+```
+
+The `time.Tick` function behaves as if it creates a goroutine that calls `time.Sleep` in a loop, sending an event each time it wakes up. When the countdown function above returns, it stops receiving events from the tick, but the ticker goroutine is still there, trying in vain to send on a channel from which no goroutine is receiving -- a `goroutine leak`.
+
+The `Tick` function is convenient, but it's appropriate only when the ticks will be needed through the lifetime of the application. Otherwise, we should use this pattern.
+
+```go
+ticker := time.NewTicker(1 * time.Second)
+<- ticker.C // receive from the ticker's channel
+ticker.Stop() // cause the ticker's goroutine to terminate
+```
+
+We have to use a counting semaphore to prevent from opening too many files at once.
+
+```go
+var sema = make(chan struct{}, 4)
+
+// dirents returns the entries of directory dir
+func dirents(dir string) []os.FileInfo {
+	sema <- struct{}{} // acquire token
+	defer func() {
+		<-sema // release token
+	}()
+	entries, err := ioutil.ReadDir(dir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "du3: %v\n", err)
+		return nil
+	}
+	return entries
+}
+
+```
+
+## Cancellation
+
+Sometimes we need to instruct a goroutine to stop what it is doing. For example, in a web server performing a computation on behalf of a client that hs disconnected.
+
+There is no way for one goroutine to terminate another directly.
 
 ## Mutual Exclusion
 
